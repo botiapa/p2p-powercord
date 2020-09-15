@@ -19,6 +19,25 @@ https.get("https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js", function (res) {
         peer.on("open", function (id) {
             console.log(`p2p Peer created with id: ${id}`);
         });
+        peer.on("call", function (call) {
+            console.log(`Got a call ${call}`);
+            getUserMedia(
+                { audio: true },
+                function (stream) {
+                    call.answer(stream); // Answer the call with an A/V stream.
+                    call.on("stream", function (remoteStream) {
+                        var audioCtx = new AudioContext();
+                        var source = audioCtx.createMediaStreamSource(
+                            remoteStream
+                        );
+                        console.log(source);
+                    });
+                },
+                function (err) {
+                    console.log("Failed to get local stream", err);
+                }
+            );
+        });
         peer.on("connection", function (conn) {
             conn.on("data", function (data) {
                 // Will print 'hi!'
@@ -28,18 +47,21 @@ https.get("https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js", function (res) {
     });
 });
 
+var getUserMedia = navigator.getUserMedia;
 function connectExecutor(args) {
     if (args.length == 1) {
-        let conn = peer.connect(args[0]);
-        conn.on("open", function () {
-            // Receive messages
-            conn.on("data", function (data) {
-                console.log("Received", data);
-            });
-
-            // Send messages
-            conn.send("Hello!");
-        });
+        getUserMedia(
+            { audio: true },
+            function (stream) {
+                var call = peer.call(args[0], stream);
+                call.on("stream", function (remoteStream) {
+                    // Show stream in some video/canvas element.
+                });
+            },
+            function (err) {
+                console.log("Failed to get local stream", err);
+            }
+        );
         return {
             send: false,
             result: `Trying to connect to peer ${args[0]}`,
